@@ -105,7 +105,7 @@
 <body>
 <div class="topbar">
   <div class="brand">Presentismo <span>/ KZero</span></div>
-  <div class="updated">Actualizado: 23/05/2026 11:51</div>
+  <div class="updated">Actualizado: 23/05/2026 11:57</div>
 </div>
 <div class="metrics">
   <div class="metric"><div class="metric-label">Dotaci&oacute;n</div><div class="metric-value b" id="m-dot">-</div></div>
@@ -396,16 +396,25 @@ function renderFichajes(resetPage) {
   FICH_FILTERED.sort(function(a,b){ return b.dt.localeCompare(a.dt); });
 
   // Agrupar por legajo+fecha: una fila con entrada y salida
+  // Salidas hasta las 02:00 se asocian al dia anterior (turno nocturno)
   var grupos = {};
   var gruposOrder = [];
   for (var i=0; i<FICH_FILTERED.length; i++) {
     var f = FICH_FILTERED[i];
-    var key = f.legajo + "|" + f.dt.substring(0,10);
+    var hora = f.dt.substring(11,16);
+    var fechaBase = f.dt.substring(0,10);
+    // Si la marca es antes de las 02:00, pertenece al dia anterior
+    if (hora < "02:00") {
+      var d = new Date(fechaBase + "T00:00:00");
+      d.setDate(d.getDate() - 1);
+      fechaBase = d.getFullYear() + "-" + ("0"+(d.getMonth()+1)).slice(-2) + "-" + ("0"+d.getDate()).slice(-2);
+    }
+    var key = f.legajo + "|" + fechaBase;
     if (!grupos[key]) {
-      grupos[key] = { legajo:f.legajo, nombre:f.nombre, sector:f.sector||"", fecha:f.dt.substring(0,10), maquina:f.maquina, marcas:[] };
+      grupos[key] = { legajo:f.legajo, nombre:f.nombre, sector:f.sector||"", fecha:fechaBase, maquina:f.maquina, marcas:[] };
       gruposOrder.push(key);
     }
-    grupos[key].marcas.push(f.dt.substring(11,16));
+    grupos[key].marcas.push(hora);
   }
   // Ordenar marcas de cada grupo y reconstruir array plano
   var agrupado = gruposOrder.map(function(k) {
@@ -413,6 +422,8 @@ function renderFichajes(resetPage) {
     g.marcas.sort();
     g.entrada = g.marcas[0];
     g.salida  = g.marcas.length > 1 ? g.marcas[g.marcas.length-1] : "";
+    // Si entrada es antes de las 02:00 es una salida nocturna, no entrada
+    if (g.entrada < "02:00" && g.marcas.length === 1) { g.salida = g.entrada; g.entrada = ""; }
     return g;
   });
   FICH_FILTERED = agrupado;
